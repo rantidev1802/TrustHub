@@ -1,0 +1,23 @@
+# Foundry build artifacts
+cache/
+out/
+broadcast/
+
+# Foundry dependency (fetch with: forge install)
+lib/forge-std/
+
+# Node / package artifacts
+node_modules/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Editors / IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
