@@ -13,6 +13,7 @@ contract TrustSubAccess {
     event AccessChecked(address indexed user, bool subscribed, bool inGrace);
 
     constructor(address _vault) {
+        require(_vault != address(0), "zero vault");
         vault = _vault;
     }
 
@@ -28,7 +29,7 @@ contract TrustSubAccess {
     /// @notice Your backend calls this to verify a user still has access.
     function checkAccess(address user) external returns (bool) {
         bool subscribed = _isSubscribed(user);
-        bool grace = _inGrace(user);
+        bool grace = subscribed ? false : _inGrace(user);
         emit AccessChecked(user, subscribed, grace);
         return subscribed || grace;
     }
@@ -38,7 +39,7 @@ contract TrustSubAccess {
         (bool ok, bytes memory data) = vault.staticcall(
             abi.encodeWithSignature("isSubscribed(address)", user)
         );
-        require(ok, "vault read failed");
+        if (!ok || data.length < 32) return false;
         return abi.decode(data, (bool));
     }
 
@@ -48,7 +49,7 @@ contract TrustSubAccess {
         (bool ok, bytes memory data) = vault.staticcall(
             abi.encodeWithSignature("subscriptions(address)", user)
         );
-        if (!ok) return false;
+        if (!ok || data.length < 160) return false;
         (,, uint256 next, bool active,) = abi.decode(data, (uint256, address, uint256, bool, uint256));
         return active && block.timestamp >= next && block.timestamp < next + GRACE_PERIOD;
     }

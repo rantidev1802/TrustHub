@@ -8,6 +8,7 @@ lib/forge-std/
 
 # Node / package artifacts
 node_modules/
+dist/
 
 # Environment secrets
 .env

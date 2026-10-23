@@ -1,0 +1,167 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   TrustHub Protocol — Global Design Tokens
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* shadcn/ui base tokens — dark by default (TrustHub is a dark product) */
+    --background: 7 12 18;
+    --foreground: 248 250 252;
+    --card: 16 24 40 / 0.72;
+    --card-foreground: 248 250 252;
+    --popover: 13 19 34;
+    --popover-foreground: 248 250 252;
+    --primary: 195 242 254;
+    --primary-foreground: 7 12 18;
+    --secondary: 255 255 255 / 0.06;
+    --secondary-foreground: 248 250 252;
+    --muted: 255 255 255 / 0.05;
+    --muted-foreground: 148 163 184;
+    --accent: 0 242 254 / 0.12;
+    --accent-foreground: 0 242 254;
+    --destructive: 244 63 94;
+    --destructive-foreground: 255 255 255;
+    --border: 255 255 255 / 0.09;
+    --input: 255 255 255 / 0.06;
+    --ring: 0 242 254;
+    --radius: 0.75rem;
+
+    /* TrustHub accent overrides */
+    --trust-cyan: 0 242 254;
+    --trust-blue: 79 172 254;
+    --trust-purple: 138 43 226;
+    --trust-emerald: 16 185 129;
+    --trust-amber: 245 158 11;
+    --trust-rose: 244 63 94;
+  }
+
+  .dark {
+    --background: 7 12 18;
+    --foreground: 248 250 252;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  code, .font-mono, .monospace {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+}
+
+/* ============================================================
+   Ambient background glow (same signature as original app)
+   ============================================================ */
+.ambient-glow {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(140px);
+  z-index: 0;
+  opacity: 0.45;
+}
+
+.ambient-glow-1 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, hsl(var(--trust-cyan)) 0%, hsl(var(--trust-blue)) 100%);
+  top: -150px;
+  right: -100px;
+}
+
+.ambient-glow-2 {
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, hsl(var(--trust-purple)) 0%, hsl(var(--trust-blue)) 100%);
+  bottom: -100px;
+  left: -100px;
+}
+
+/* ============================================================
+   Glass card (replaces .glass-card)
+   ============================================================ */
+.glass-card {
+  background: hsl(var(--card));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   Scrollbar
+   ============================================================ */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================
+   Animated gradient text
+   ============================================================ */
+.gradient-text {
+  background: linear-gradient(135deg, #ffffff 40%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-cyan {
+  background: linear-gradient(90deg, #ffffff 30%, hsl(var(--trust-cyan)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============================================================
+   Toast (replaces .toast-container)
+   ============================================================ */
+.toast-container {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+/* ============================================================
+   Skeleton shimmer
+   ============================================================ */
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+  border-radius: 0.5rem;
+}

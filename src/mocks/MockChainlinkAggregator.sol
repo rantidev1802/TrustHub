@@ -23,7 +23,8 @@ contract MockChainlinkAggregator is IChainlinkAggregator {
         override
         returns (uint80, int256, uint256, uint256, uint80)
     {
-        return (1, _price, block.timestamp, block.timestamp, 1);
+        uint256 ts = block.timestamp == 0 ? 1 : block.timestamp;
+        return (1, _price, ts, ts, 1);
     }
 
     function setPrice(int256 newPrice) external {

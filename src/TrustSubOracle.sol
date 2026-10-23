@@ -29,14 +29,12 @@ contract TrustSubOracle is ITrustSubOracle {
         require(_tokens.length == _feeds.length, "length mismatch");
         admin = msg.sender;
         for (uint256 i = 0; i < _tokens.length; i++) {
+            require(_tokens[i] != address(0), "zero token");
             priceFeed[_tokens[i]] = IChainlinkAggregator(_feeds[i]);
             if (_feeds[i] != address(0)) {
-                (, int256 rawPrice,,,) = IChainlinkAggregator(_feeds[i]).latestRoundData();
-                if (rawPrice > 0) {
-                    uint256 p = uint256(rawPrice) * 1e10;
-                    lastPrice[_tokens[i]] = p;
-                    emit PriceUpdated(_tokens[i], p);
-                }
+                uint256 p = getPrice(_tokens[i]);
+                lastPrice[_tokens[i]] = p;
+                emit PriceUpdated(_tokens[i], p);
             }
         }
     }
@@ -56,22 +54,35 @@ contract TrustSubOracle is ITrustSubOracle {
         require(token != address(0), "zero token");
         require(feed != address(0), "zero feed");
         priceFeed[token] = IChainlinkAggregator(feed);
-        (, int256 rawPrice,,,) = IChainlinkAggregator(feed).latestRoundData();
-        if (rawPrice > 0) {
-            uint256 p = uint256(rawPrice) * 1e10;
-            lastPrice[token] = p;
-            emit PriceUpdated(token, p);
-        }
+        uint256 p = getPrice(token);
+        lastPrice[token] = p;
+        emit PriceUpdated(token, p);
     }
 
     /// @notice Pull the latest Chainlink price for a token (1e18 scaled).
     function getPrice(address token) public view override returns (uint256) {
         IChainlinkAggregator feed = priceFeed[token];
         require(address(feed) != address(0), "no feed");
-        (, int256 rawPrice,,,) = feed.latestRoundData();
+        (uint80 roundId, int256 rawPrice, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound) = feed.latestRoundData();
+        startedAt; // silence unused variable warning
         require(rawPrice > 0, "bad price");
-        // Normalize to 18 decimals (Chainlink USD feeds typically have 8 decimals).
-        return uint256(rawPrice) * 1e10;
+        require(answeredInRound >= roundId, "stale price");
+        require(updatedAt != 0, "round not complete");
+
+        uint8 feedDecimals = 8;
+        try feed.decimals() returns (uint8 d) {
+            feedDecimals = d;
+        } catch {}
+
+        // Casting to uint256 is safe because rawPrice > 0 is verified above
+        // forge-lint: disable-next-line(unsafe-typecast)
+        if (feedDecimals <= 18) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            return uint256(rawPrice) * (10 ** (18 - feedDecimals));
+        } else {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            return uint256(rawPrice) / (10 ** (feedDecimals - 18));
+        }
     }
 
     /// @notice Returns true if the token is flagged frozen or if the current
@@ -101,8 +112,15 @@ contract TrustSubOracle is ITrustSubOracle {
         require(!isFrozen(token), "price frozen");
         uint256 price = _pullAndCheck(token);
         require(!frozen[token], "price frozen");
-        // tokenAmount = usdAmount / price (both 1e18 scaled)
-        tokenAmount = (usdAmount * 1e18) / price;
+
+        uint8 tokenDecimals = 18;
+        (bool ok, bytes memory data) = token.staticcall(abi.encodeWithSignature("decimals()"));
+        if (ok && data.length >= 32) {
+            tokenDecimals = abi.decode(data, (uint8));
+        }
+
+        // tokenAmount = (usdAmount * 10^tokenDecimals) / price
+        tokenAmount = (usdAmount * (10 ** tokenDecimals)) / price;
     }
 
     /// @notice Pull the price, update state, and freeze if volatility exceeds threshold.
@@ -122,6 +140,12 @@ contract TrustSubOracle is ITrustSubOracle {
 
         lastPrice[token] = price;
         emit PriceUpdated(token, price);
+    }
+
+    /// @notice Allow an admin to manually freeze a token in an emergency.
+    function freeze(address token) external onlyAdmin {
+        frozen[token] = true;
+        emit PriceFrozen(token, getPrice(token));
     }
 
     /// @notice Allow an admin to manually unfreeze a token after a volatile cycle.

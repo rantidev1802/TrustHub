@@ -15,8 +15,10 @@ contract TrustSubAutomation {
     event Heartbeat(uint256 indexed blockNumber);
     event PaymentTriggered(address indexed subscriber);
     event PaymentRetried(address indexed subscriber, uint256 attempt);
+    event KeeperTransferred(address indexed oldKeeper, address indexed newKeeper);
 
     constructor(address _vault) {
+        require(_vault != address(0), "zero vault");
         vault = _vault;
         keeper = msg.sender;
     }
@@ -35,6 +37,8 @@ contract TrustSubAutomation {
         uint256 count = 0;
         for (uint256 i = 0; i < subscribers.length; i++) {
             address sub = subscribers[i];
+            if (sub == address(0)) continue;
+
             // Due detection: block.timestamp >= nextPaymentTimestamp.
             (uint256 next, bool active) = _due(sub);
             if (active && block.timestamp >= next) {
@@ -63,7 +67,7 @@ contract TrustSubAutomation {
         (bool ok, bytes memory data) = vault.staticcall(
             abi.encodeWithSignature("subscriptions(address)", subscriber)
         );
-        require(ok, "vault read failed");
+        if (!ok || data.length < 160) return (0, false);
         // subscriptions(address) returns (uint256 planId, address subscriber,
         // uint256 nextPaymentTimestamp, bool active, uint256 createdAt).
         (,, nextPaymentTimestamp, active,) = abi.decode(data, (uint256, address, uint256, bool, uint256));
@@ -72,6 +76,8 @@ contract TrustSubAutomation {
 
     /// @notice Keeper can change the keeper address.
     function setKeeper(address newKeeper) external onlyKeeper {
+        require(newKeeper != address(0), "zero keeper");
+        emit KeeperTransferred(keeper, newKeeper);
         keeper = newKeeper;
     }
 }

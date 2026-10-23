@@ -21,8 +21,8 @@ contract TrustSubToken is IERC20 {
     }
 
     // EIP-2612 domain separator — the foundation of gasless approvals.
-    bytes32 private immutable DOMAIN_SEPARATOR;
-    bytes32 private immutable PERMIT_TYPEHASH =
+    bytes32 public immutable DOMAIN_SEPARATOR;
+    bytes32 public constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     mapping(address => uint256) public nonces;
 
@@ -31,9 +31,9 @@ contract TrustSubToken is IERC20 {
         symbol = _symbol;
         address verifying = _verifyingContract == address(0) ? address(this) : _verifyingContract;
         DOMAIN_SEPARATOR = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes(name)),
+                keccak256(bytes(_name)),
                 keccak256(bytes("1")),
                 block.chainid,
                 verifying
@@ -67,9 +67,10 @@ contract TrustSubToken is IERC20 {
 
     function transferFrom(address from, address to, uint256 amount) external override returns (bool) {
         uint256 allowed = _allowances[from][msg.sender];
-        require(allowed >= type(uint256).max || allowed >= amount, "allowance");
+        require(allowed >= amount, "allowance");
         if (allowed < type(uint256).max) {
             _allowances[from][msg.sender] = allowed - amount;
+            emit Approval(from, msg.sender, allowed - amount);
         }
         _transfer(from, to, amount);
         return true;
@@ -77,6 +78,7 @@ contract TrustSubToken is IERC20 {
 
     // ---------- Minting (deployer / treasury) ----------
     function mint(address to, uint256 amount) external {
+        require(to != address(0), "zero recipient");
         _totalSupply += amount;
         _balances[to] += amount;
         emit Transfer(address(0), to, amount);
@@ -84,17 +86,29 @@ contract TrustSubToken is IERC20 {
 
     // ---------- Gasless approval (EIP-2612 permit) ----------
     /// @notice Sign off-chain, then submit this to approve without paying gas.
-    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
+    function permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external {
         require(block.timestamp <= deadline, "expired");
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR,
-                keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner], deadline))
-            )
+        require(owner != address(0), "zero owner");
+        require(uint256(s) <= 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D57617F83A266DBACFEE53637E59D16, "invalid s");
+        require(v == 27 || v == 28, "invalid v");
+
+        bytes32 structHash = keccak256(
+            abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline)
         );
-        require(owner == ecrecover(digest, v, r, s), "invalid signature");
-        nonces[owner]++;
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash)
+        );
+        address signer = ecrecover(digest, v, r, s);
+        require(signer != address(0) && signer == owner, "invalid signature");
+
         _allowances[owner][spender] = value;
         emit Approval(owner, spender, value);
     }
